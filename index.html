@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>لعبة FPS مدمرة - نسخة محسنة</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #444; }
+  canvas { display: block; }
+  #instructions {
+    position: absolute;
+    top: 10px; right: 10px;
+    color: white;
+    font-family: Arial, sans-serif;
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 6px;
+    max-width: 350px;
+    user-select: none;
+    cursor: pointer;
+  }
+  #status {
+    position: absolute;
+    bottom: 10px; right: 10px;
+    color: white;
+    font-family: Arial, sans-serif;
+    background: rgba(0,0,0,0.4);
+    padding: 6px 10px;
+    border-radius: 6px;
+    max-width: 200px;
+  }
+</style>
+</head>
+<body>
+<div id="instructions">
+  اضغط في الشاشة للبدء، استخدم <b>WASD</b> للحركة، <b>الفأرة</b> للنظر، <b>الفأرة اليسرى</b> لإطلاق النار.<br>
+  حاول القضاء على الأعداء الذين يختبئون ويتحركون.
+</div>
+<div id="status">عدد الأعداء المتبقين: <span id="enemyCount">0</span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+
+<script>
+(() => {
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x777766, 0.03);
+
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.y = 1.8;
+
+  const renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // أضواء
+  const sunLight = new THREE.DirectionalLight(0xffddb3, 1.2);
+  sunLight.position.set(10, 20, 10);
+  scene.add(sunLight);
+  const ambientLight = new THREE.AmbientLight(0x555544);
+  scene.add(ambientLight);
+
+  // أرضية
+  const groundMat = new THREE.MeshStandardMaterial({color: 0x8a7f6e});
+  const groundGeom = new THREE.PlaneGeometry(300, 300);
+  const ground = new THREE.Mesh(groundGeom, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+
+  // ضباب بسيط
+  const fogParticles = [];
+  const fogGeo = new THREE.SphereGeometry(0.5, 6, 6);
+  const fogMat = new THREE.MeshStandardMaterial({
+    color: 0x999988,
+    transparent: true,
+    opacity: 0.12,
+    depthWrite: false
+  });
+  for(let i=0; i<100; i++){
+    const fogP = new THREE.Mesh(fogGeo, fogMat);
+    fogP.position.set(
+      (Math.random()-0.5)*200,
+      1 + Math.random()*3,
+      (Math.random()-0.5)*200
+    );
+    scene.add(fogP);
+    fogParticles.push(fogP);
+  }
+
+  // مباني مدمرة (نفس الفكرة لكن أكثر)
+  function createDamagedBuilding(x,z){
+    const group = new THREE.Group();
+    const baseMat = new THREE.MeshStandardMaterial({color: 0x9c8c7a});
+    const baseGeom = new THREE.BoxGeometry(6, 5, 6);
+    const base = new THREE.Mesh(baseGeom, baseMat);
+    base.position.set(0, 2.5, 0);
+    group.add(base);
+
+    // ثقوب
+    for(let i=0; i<20; i++){
+      const holeGeom = new THREE.BoxGeometry(
+        THREE.MathUtils.randFloat(0.4, 0.8),
+        THREE.MathUtils.randFloat(0.4, 0.8),
+        0.3
+      );
+      const holeMat = new THREE.MeshStandardMaterial({color: 0x444444});
+      const hole = new THREE.Mesh(holeGeom, holeMat);
+      hole.position.set(
+        THREE.MathUtils.randFloat(-2.5, 2.5),
+        THREE.MathUtils.randFloat(1, 4),
+        3.01 + (Math.random() > 0.5 ? 0 : -0.03)
+      );
+      group.add(hole);
+    }
+
+    // سقف مكسور
+    const roofGeom = new THREE.BoxGeometry(6, 1, 6);
+    const roofMat = new THREE.MeshStandardMaterial({color: 0x776655});
+    const roof = new THREE.Mesh(roofGeom, roofMat);
+    roof.position.set(0, 6, 0);
+    roof.rotation.x = -0.4;
+    group.add(roof);
+
+    group.position.set(x, 0, z);
+    scene.add(group);
+
+    return group;
+  }
+
+  // إنشاء مباني كثيرة
+  const buildings = [];
+  buildings.push(createDamagedBuilding(20, -10));
+  buildings.push(createDamagedBuilding(-25, 15));
+  buildings.push(createDamagedBuilding(30, 30));
+  buildings.push(createDamagedBuilding(-30, -25));
+  buildings.push(createDamagedBuilding(0, 40));
+
+  // سيارات محترقة
+  function createBurntCar(x,z){
+    const carGeom = new THREE.BoxGeometry(3, 1.2, 5);
+    const carMat = new THREE.MeshStandardMaterial({color: 0x220000, roughness: 0.9});
+    const car = new THREE.Mesh(carGeom, carMat);
+    car.position.set(x, 0.6, z);
+    scene.add(car);
+
+    const smokeGeom = new THREE.SphereGeometry(0.7, 8, 8);
+    const smokeMat = new THREE.MeshStandardMaterial({
+      color: 0x333333,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false
+    });
+    const smoke = new THREE.Mesh(smokeGeom, smokeMat);
+    smoke.position.set(x, 3, z);
+    scene.add(smoke);
+
+    return car;
+  }
+
+  const cars = [];
+  cars.push(createBurntCar(12, 5));
+  cars.push(createBurntCar(-18, -8));
+  cars.push(createBurntCar(5, -20));
+
+  // شجر زيتون محترق (مبسط)
+  function createBurntOliveTree(x,z){
+    const trunkGeom = new THREE.CylinderGeometry(0.12, 0.15, 2);
+    const trunkMat = new THREE.MeshStandardMaterial({color: 0x1a1a1a});
+    const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+    trunk.position.set(x, 1, z);
+    scene.add(trunk);
+
+    for(let i=0; i<6; i++){
+      const branchGeom = new THREE.CylinderGeometry(0.04, 0.06, 1);
+      const branch = new THREE.Mesh(branchGeom, trunkMat);
+      branch.position.set(
+        x + (Math.random()-0.5)*0.6,
+        1.8 + Math.random()*0.3,
+        z + (Math.random()-0.5)*0.6
+      );
+      branch.rotation.z = Math.random()*Math.PI/2;
+      scene.add(branch);
+    }
+  }
+
+  for(let i=0; i<15; i++){
+    createBurntOliveTree(
+      (Math.random()-0.5)*150,
+      (Math.random()-0.5)*150
+    );
+  }
+
+  // تدمير غطاء (مكعبات تغطية)
+  class Cover {
+    constructor(x,z){
+      this.health = 3;
+      this.mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(3, 2, 1.5),
+        new THREE.MeshStandardMaterial({color: 0x554433})
+      );
+      this.mesh.position.set(x, 1, z);
+      scene.add(this.mesh);
+    }
+
+    hit(){
+      this.health--;
+      this.mesh.material.color.setHex(0x552200 + (3-this.health)*0x110000);
+      if(this.health <= 0){
+        scene.remove(this.mesh);
+        this.dead = true;
+      }
+    }
+  }
+  const covers = [];
+  covers.push(new Cover(8, 8));
+  covers.push(new Cover(-10, -5));
+  covers.push(new Cover(15, -12));
+
+  // PointerLockControls
+  const controls = new THREE.PointerLockControls(camera, renderer.domElement);
+
+  document.getElementById('instructions').addEventListener('click', () => {
+    controls.lock();
+  });
+
+  controls.addEventListener('lock', () => {
+    document.getElementById('instructions').style.display = 'none';
+  });
+  controls.addEventListener('unlock', () => {
+    document.getElementById('instructions').style.display = '';
+  });
+
+  // حركة لاعب مع تسارع واحتكاك
+  const move = {forward:false, back:false, left:false, right:false};
+  const velocity = new THREE.Vector3();
+  const direction = new THREE.Vector3();
+  const speed = 7;
+  const acceleration = 30;
+  const friction = 15;
+
+  document.addEventListener('keydown', (e) => {
+    switch(e.code){
+      case 'KeyW': move.forward = true; break;
+      case 'KeyS': move.back = true; break;
+      case 'KeyA': move.left = true; break;
+      case 'KeyD': move.right = true; break;
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    switch(e.code){
+      case 'KeyW': move.forward = false; break;
+      case 'KeyS': move.back = false; break;
+      case 'KeyA': move.left = false; break;
+      case 'KeyD': move.right = false; break;
+    }
+  });
+
+  // إطلاق نار مع تدمير تغطية
+  const shootLineMaterial = new THREE.LineBasicMaterial({color: 0xff2200});
+  let shootLine;
+  let shootTimeout;
+
+  // أصوات (طلقة، خطوات، رياح)
+  const listener = new THREE.AudioListener();
+  camera.add(listener);
+
+  const gunshotSound = new THREE.Audio(listener);
+  const stepSound = new THREE.Audio(listener);
+  const windSound = new THREE.Audio(listener);
+
+  const audioLoader = new THREE.AudioLoader();
+  audioLoader.load('https://cdn.pixabay.com/download/audio/2022/03/15/audio_03b76c4e5b.mp3?filename=gunshot-01.wav', buffer => {
+    gunshotSound.setBuffer(buffer);
+    gunshotSound.setVolume(0.5);
+  });
+  audioLoader.load('https://cdn.pixabay.com/download/audio/2022/03/15/audio_f4e5b23b19.mp3?filename=walking-step-1.wav', buffer => {
+    stepSound.setBuffer(buffer);
+    stepSound.setVolume(0.15);
+    stepSound.setLoop(true);
+  });
+  audioLoader.load('https://cdn.pixabay.com/download/audio/2023/02/12/audio_65a48a43bc.mp3?filename=wind-gentle.wav', buffer => {
+    windSound.setBuffer(buffer);
+    windSound.setVolume(0.2);
+    windSound.setLoop(true);
+    windSound.play();
+  });
+
+  // عداد أعداء
+  const enemyCountDisplay = document.getElementById('enemyCount');
+
+  // أعداء AI بسيطين
+  class Enemy {
+    constructor(x,z){
+      this.health = 3;
+      this.speed = 2;
+      this.mesh = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.4, 1.0, 4, 8),
+        new THREE.MeshStandardMaterial({color: 0xaa0000})
+      );
+      this.mesh.position.set(x, 1, z);
+      scene.add(this.mesh);
+      this.alive = true;
+      this.targetPosition = new THREE.Vector3();
+    }
+
+    update(delta){
+      if(!this.alive) return;
+
+      // يتجه للاعب
+      this.targetPosition.copy(camera.position);
+      this.targetPosition.y = this.mesh.position.y;
+
+      const dir = this.targetPosition.clone().sub(this.mesh.position);
+      const dist = dir.length();
+
+      if(dist > 2){
+        dir.normalize();
+        this.mesh.position.addScaledVector(dir, this.speed * delta);
+      } else {
+        // يهاجم (ممكن تضيف تأثير هجوم)
+      }
+    }
+
+    hit(){
+      this.health--;
+      if(this.health <= 0){
+        this.alive = false;
+        scene.remove(this.mesh);
+      } else {
+        this.mesh.material.color.setHex(0xff6666);
+        setTimeout(() => {
+          if(this.alive)
+            this.mesh.material.color.setHex(0xaa0000);
+        }, 200);
+      }
+    }
+  }
+
+  const enemies = [];
+  // إنشاء 5 أعداء بمواقع متفرقة
+  for(let i=0; i<5; i++){
+    enemies.push(new Enemy(
+      (Math.random()-0.5)*50,
+      (Math.random()-0.5)*50
+    ));
+  }
+  enemyCountDisplay.textContent = enemies.length;
+
+  // إطلاق نار ووظيفة التأثير على أعداء وغطاء
+  function shoot(){
+    if(shootLine) scene.remove(shootLine);
+
+    const start = camera.position.clone();
+    const directionShoot = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+
+    const end = start.clone().add(directionShoot.multiplyScalar(50));
+
+    // رسم خط الطلقة
+    const points = [start, end];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    shootLine = new THREE.Line(geometry, shootLineMaterial);
+    scene.add(shootLine);
+
+    clearTimeout(shootTimeout);
+    shootTimeout = setTimeout(() => {
+      if(shootLine) scene.remove(shootLine);
+      shootLine = null;
+    }, 100);
+
+    // فحص التصادم مع الأعداء (تقريب بالنقطة الأقرب)
+    for(let enemy of enemies){
+      if(!enemy.alive) continue;
+      const toEnemy = enemy.mesh.position.clone().sub(start);
+      const projLength = toEnemy.dot(directionShoot);
+      if(projLength > 0 && projLength < 50){
+        const closestPoint = start.clone().add(directionShoot.clone().multiplyScalar(projLength));
+        const distToEnemy = enemy.mesh.position.distanceTo(closestPoint);
+        if(distToEnemy < 1){ // مسافة تقارب حجم العدو
+          enemy.hit();
+          updateEnemyCount();
+          return;
+        }
+      }
+    }
+
+    // فحص التصادم مع التغطيات
+    for(let cover of covers){
+      if(cover.dead) continue;
+      const toCover = cover.mesh.position.clone().sub(start);
+      const projLength = toCover.dot(directionShoot);
+      if(projLength > 0 && projLength < 50){
+        const closestPoint = start.clone().add(directionShoot.clone().multiplyScalar(projLength));
+        const distToCover = cover.mesh.position.distanceTo(closestPoint);
+        if(distToCover < 2){
+          cover.hit();
+          return;
+        }
+      }
+    }
+  }
+
+  window.addEventListener('mousedown', (e) => {
+    if(controls.isLocked && e.button === 0){
+      shoot();
+      gunshotSound.play();
+    }
+  });
+
+  // تحديث عدد الأعداء
+  function updateEnemyCount(){
+    const aliveCount = enemies.filter(e => e.alive).length;
+    enemyCountDisplay.textContent = aliveCount;
+  }
+
+  // خطوات صوت عند الحركة
+  let isMoving = false;
+  function updateStepSound(delta){
+    const movingNow = move.forward || move.back || move.left || move.right;
+    if(movingNow && !isMoving){
+      stepSound.play();
+      isMoving = true;
+    } else if(!movingNow && isMoving){
+      stepSound.stop();
+      isMoving = false;
+    }
+  }
+
+  // حلقة التحديث
+  let prevTime = performance.now();
+  function animate(){
+    requestAnimationFrame(animate);
+
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000;
+    prevTime = time;
+
+    // تحديث حركة اللاعب
+    direction.set(0, 0, 0);
+    if(move.forward) direction.z -= 1;
+    if(move.back) direction.z += 1;
+    if(move.left) direction.x -= 1;
+    if(move.right) direction.x += 1;
+    direction.normalize();
+
+    // تحديث السرعة
+    if(direction.length() > 0){
+      velocity.x += direction.x * acceleration * delta;
+      velocity.z += direction.z * acceleration * delta;
+    } else {
+      // احتكاك لإبطاء الحركة تدريجياً
+      velocity.x -= Math.min(Math.abs(velocity.x), friction * delta) * Math.sign(velocity.x);
+      velocity.z -= Math.min(Math.abs(velocity.z), friction * delta) * Math.sign(velocity.z);
+    }
+
+    // تقييد السرعة القصوى
+    velocity.x = THREE.MathUtils.clamp(velocity.x, -speed, speed);
+    velocity.z = THREE.MathUtils.clamp(velocity.z, -speed, speed);
+
+    // تحريك الكاميرا (اللاعب)
+    controls.moveRight(velocity.x * delta);
+    controls.moveForward(velocity.z * delta);
+
+    // لا تسقط تحت الأرض (y ثابت)
+    camera.position.y = 1.8;
+
+    updateStepSound(delta);
+
+    // تحديث الأعداء
+    for(let enemy of enemies){
+      enemy.update(delta);
+    }
+
+    // تحديث الضباب المتحرك
+    fogParticles.forEach(p => {
+      p.position.x += 0.01 * (Math.random()-0.5);
+      p.position.z += 0.01 * (Math.random()-0.5);
+      if(p.position.x > 150) p.position.x = -150;
+      if(p.position.x < -150) p.position.x = 150;
+      if(p.position.z > 150) p.position.z = -150;
+      if(p.position.z < -150) p.position.z = 150;
+    });
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+})();
+</script>
+</body>
+</html>
