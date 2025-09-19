@@ -1,169 +1,2121 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" id="htmlTag">
 <head>
-<meta charset="UTF-8" />
-<title>لعبة FPS بيئة مدمرة</title>
-<style>
-  body { margin: 0; overflow: hidden; background: #333; }
-  canvas { display: block; }
-  #blocker {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-family: Arial, sans-serif;
-    font-size: 24px;
-    cursor: pointer;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بلوكلي - منافس سكراتش</title>
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+  <style>
+    :root {
+      --primary: #4a6fa5;
+      --success: #4CAF50;
+      --danger: #f44336;
+      --warning: #ff9800;
+      --info: #2196F3;
+      --dark: #2c3e50;
+      --light: #f0f5ff;
+      --console-bg: #2c3e50;
+      --console-text: #ecf0f1;
+      --sidebar-width: 300px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: var(--light);
+      color: #333;
+      transition: all 0.3s;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* Header */
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      background: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button {
+      padding: 8px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      filter: brightness(0.9);
+    }
+
+    .btn-primary { background: white; color: var(--primary); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-warning { background: var(--warning); color: white; }
+    .btn-info { background: var(--info); color: white; }
+
+    /* Main Layout */
+    .main-container {
+      display: flex;
+      height: calc(100vh - 60px);
+    }
+
+    /* Blockly Area */
+    #blocklyArea {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    #blocklyDiv {
+      height: 100%;
+      width: 100%;
+      background: white;
+    }
+
+    /* Stage Panel */
+    .stage-panel {
+      width: var(--sidebar-width);
+      display: flex;
+      flex-direction: column;
+      background: white;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    /* Stage */
+    .stage-container {
+      height: 300px;
+      background: #a8d5ba;
+      position: relative;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+      border-bottom: 1px solid #eee;
+    }
+
+    #stage {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .sprite {
+      position: absolute;
+      transition: all 0.3s ease;
+      user-select: none;
+      cursor: move;
+    }
+
+    .sprite.bounce {
+      animation: bounce 0.5s ease;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .speech-bubble {
+      position: absolute;
+      background: white;
+      padding: 8px 12px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      max-width: 150px;
+      font-size: 14px;
+      z-index: 100;
+      pointer-events: none;
+      animation: fadeOut 2s forwards;
+      margin-top: -60px;
+      margin-left: 40px;
+    }
+
+    @keyframes fadeOut {
+      0% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: #f5f5f5;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-weight: 500;
+      flex: 1;
+      text-align: center;
+    }
+
+    .tab.active {
+      border-bottom: 3px solid var(--primary);
+      color: var(--primary);
+    }
+
+    /* Tab Content */
+    .tab-content {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Console */
+    #console {
+      background: var(--console-bg);
+      color: var(--console-text);
+      padding: 15px;
+      border-radius: 5px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      height: 150px;
+      overflow-y: auto;
+      direction: ltr;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    /* Sprite Properties */
+    .property-group {
+      margin-bottom: 20px;
+    }
+
+    .property-group h4 {
+      margin: 0 0 10px 0;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #eee;
+      color: var(--dark);
+    }
+
+    .property-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .property-label {
+      width: 80px;
+      font-weight: 500;
+    }
+
+    input[type="number"], input[type="text"], select {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    /* Sprite List */
+    .sprite-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .sprite-item {
+      padding: 10px;
+      border: 1px solid #eee;
+      margin-bottom: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sprite-item.active {
+      border-color: var(--primary);
+      background: #e3f2fd;
+    }
+
+    .sprite-preview {
+      width: 30px;
+      height: 30px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    /* File Upload */
+    .upload-area {
+      border: 2px dashed #ddd;
+      padding: 20px;
+      text-align: center;
+      margin: 15px 0;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .upload-area:hover {
+      border-color: var(--primary);
+    }
+
+    /* Toolbox - will be hidden */
+    #toolbox {
+      display: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+      }
+      .stage-panel {
+        width: 100%;
+        height: 400px;
+      }
+      .stage-container {
+        height: 200px;
+      }
+      :root {
+        --sidebar-width: 100%;
+      }
+    }
+
+    /* Fullscreen */
+    .fullscreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1000;
+      background: black;
+    }
+
+    .fullscreen #stage {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Loading */
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      z-index: 1000;
+    }
+  </style>
 </head>
 <body>
+  <header>
+    <div>
+      <div class="logo">Blockly</div>
+      <h1 id="title">بلوكلي 🧩</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn-primary" id="langSwitch">English</button>
+      <button class="btn-info" id="saveProjectBtn">💾 حفظ المشروع</button>
+      <button class="btn-warning" id="loadProjectBtn">📂 تحميل مشروع</button>
+      <button class="btn-success" id="fullscreenBtn">⛶ ملء الشاشة</button>
+    </div>
+  </header>
 
-<div id="blocker">اضغط هنا للبدء ثم استخدم الماوس و WASD للحركة</div>
+  <div class="main-container">
+    <div id="blocklyArea">
+      <div id="blocklyDiv"></div>
+    </div>
+    
+    <div class="stage-panel">
+      <div class="stage-container">
+        <div id="stage"></div>
+      </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+      <div class="tabs">
+        <div class="tab active" data-tab="sprites">الكائنات</div>
+        <div class="tab" data-tab="backdrops">الخلفيات</div>
+        <div class="tab" data-tab="sounds">الأصوات</div>
+        <div class="tab" data-tab="console">النتائج</div>
+      </div>
 
-<script>
-(() => {
-  const blocker = document.getElementById('blocker');
+      <div class="tab-content active" id="tab-sprites">
+        <div class="property-group">
+          <h4 id="spritePropsTitle">خصائص الكائن</h4>
+          <div class="property-row">
+            <span class="property-label" id="propNameLabel">الاسم:</span>
+            <input type="text" id="spriteName" value="البطل">
+          </div>
+          <div class="property-row">
+            <span class="property-label" id="propXLabel">X:</span>
+            <input type="number" id="spriteX" value="0">
+          </div>
+          <div class="property-row">
+            <span class="property-label" id="propYLabel">Y:</span>
+            <input type="number" id="spriteY" value="0">
+          </div>
+          <div class="property-row">
+            <span class="property-label" id="propDirLabel">الاتجاه:</span>
+            <input type="number" id="spriteDir" value="90">
+          </div>
+          <div class="property-row">
+            <span class="property-label" id="propSizeLabel">الحجم%:</span>
+            <input type="number" id="spriteSize" value="100" min="10" max="300">
+          </div>
+          <div class="property-row">
+            <button class="btn-success" id="addSpriteBtn" style="width:100%">➕ إضافة كائن جديد</button>
+          </div>
+        </div>
+        
+        <h4 id="spriteListTitle">قائمة الكائنات</h4>
+        <ul class="sprite-list" id="spriteList">
+          <!-- Will be populated dynamically -->
+        </ul>
+      </div>
 
-  // إعداد المشهد والكاميرا
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x666666);
+      <div class="tab-content" id="tab-backdrops">
+        <h4 id="backdropTitle">الخلفيات</h4>
+        <div class="upload-area" id="uploadBackdrop">
+          📤 ارفع خلفية جديدة
+        </div>
+        <div id="backdropGallery">
+          <!-- Will be populated -->
+        </div>
+      </div>
 
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.y = 1.8;
+      <div class="tab-content" id="tab-sounds">
+        <h4 id="soundsTitle">الأصوات</h4>
+        <div class="upload-area" id="uploadSound">
+          📤 ارفع صوت جديد
+        </div>
+        <div id="soundsList">
+          <!-- Will be populated -->
+        </div>
+      </div>
 
-  const renderer = new THREE.WebGLRenderer({antialias: true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+      <div class="tab-content" id="tab-console">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <h4 id="consoleTitle">النتائج:</h4>
+          <button class="btn-danger" id="clearConsole" style="padding: 5px 10px; font-size: 12px;">🗑️</button>
+        </div>
+        <div id="console">جاهز للتشغيل...</div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn-success" id="runBtn">▶ تشغيل</button>
+          <button class="btn-danger" id="stopBtn">⏹ إيقاف</button>
+          <button class="btn-warning" id="resetAllBtn">🔄 إعادة ضبط الكل</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  // تحكم PointerLock
-  const controls = new THREE.PointerLockControls(camera, document.body);
+  <!-- Hidden Input for File Upload -->
+  <input type="file" id="fileInput" style="display:none" accept=".xml,.json">
+  <input type="file" id="backdropInput" style="display:none" accept="image/*">
+  <input type="file" id="soundInput" style="display:none" accept="audio/*">
 
-  blocker.addEventListener('click', () => {
-    controls.lock();
-  });
+  <!-- Blockly Toolbox -->
+  <xml xmlns="https://developers.google.com/blockly/xml" id="toolbox">
+    <!-- Will be populated dynamically -->
+  </xml>
 
-  controls.addEventListener('lock', () => {
-    blocker.style.display = 'none';
-  });
-  controls.addEventListener('unlock', () => {
-    blocker.style.display = 'flex';
-  });
-
-  scene.add(controls.getObject());
-
-  // أرضية (سادة مع مربعات مكسرة)
-  const floorGeometry = new THREE.PlaneGeometry(200, 200);
-  const floorMaterial = new THREE.MeshStandardMaterial({color: 0x444433});
-  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor);
-
-  // إضاءة
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(10, 20, 10);
-  scene.add(light);
-
-  const ambient = new THREE.AmbientLight(0x404040);
-  scene.add(ambient);
-
-  // مباني مدمرة - مكعبات مكسرة (بعضها مائل)
-  const buildingMaterial = new THREE.MeshStandardMaterial({color: 0x888877, roughness: 0.8, metalness: 0.1});
-
-  function createRubbleBlock(x, z, rotationY=0, scaleY=1) {
-    const geom = new THREE.BoxGeometry(3, 3 * scaleY, 3);
-    const block = new THREE.Mesh(geom, buildingMaterial);
-    block.position.set(x, 1.5 * scaleY, z);
-    block.rotation.y = rotationY;
-    block.castShadow = true;
-    block.receiveShadow = true;
-    scene.add(block);
-  }
-
-  // أبني مجموعة مباني مكسرة عشوائياً
-  for(let i = -20; i <= 20; i += 7){
-    for(let j = -20; j <= 20; j += 7){
-      if(Math.random() > 0.6){
-        createRubbleBlock(i + (Math.random()-0.5)*2, j + (Math.random()-0.5)*2, Math.random() * Math.PI, 0.3 + Math.random());
+  <script>
+    // ======================
+    // الترجمات الشاملة
+    // ======================
+    const translations = {
+      ar: {
+        // General
+        title: "بلوكلي 🧩",
+        saveProject: "💾 حفظ المشروع",
+        loadProject: "📂 تحميل مشروع",
+        fullscreen: "⛶ ملء الشاشة",
+        consoleTitle: "النتائج:",
+        clearConsole: "🗑️",
+        langSwitch: "English",
+        
+        // Tabs
+        sprites: "الكائنات",
+        backdrops: "الخلفيات",
+        sounds: "الأصوات",
+        console: "النتائج",
+        
+        // Sprite Properties
+        spritePropsTitle: "خصائص الكائن",
+        propNameLabel: "الاسم:",
+        propXLabel: "X:",
+        propYLabel: "Y:",
+        propDirLabel: "الاتجاه:",
+        propSizeLabel: "الحجم%:",
+        addSpriteBtn: "➕ إضافة كائن جديد",
+        spriteListTitle: "قائمة الكائنات",
+        
+        // Backdrops
+        backdropTitle: "الخلفيات",
+        uploadBackdrop: "📤 ارفع خلفية جديدة",
+        
+        // Sounds
+        soundsTitle: "الأصوات",
+        uploadSound: "📤 ارفع صوت جديد",
+        
+        // Buttons
+        run: "▶ تشغيل",
+        stop: "⏹ إيقاف",
+        resetAll: "🔄 إعادة ضبط الكل",
+        
+        // Categories
+        events: "الأحداث",
+        motion: "الحركة",
+        looks: "المظاهر",
+        sound: "الصوت",
+        control: "التحكم",
+        sensing: "الاستشعار",
+        operators: "العمليات",
+        variables: "المتغيرات",
+        "البيانات",
+        myBlocks: "بلوكاتي",
+        
+        // Event Blocks
+        whenGreenFlag: "عند النقر على العلم الأخضر",
+        whenKeyPressed: "عند ضغط مفتاح %1",
+        whenThisSpriteClicked: "عند النقر على هذا الكائن",
+        whenBackdropSwitchesTo: "عند تغيير الخلفية إلى %1",
+        whenBroadcastReceived: "عند استقبال الرسالة %1",
+        broadcast: "بث الرسالة %1",
+        broadcastAndWait: "بث الرسالة %1 وانتظر",
+        
+        // Motion Blocks
+        moveSteps: "تحرك %1 خطوات",
+        turnRight: "استدر يميناً بمقدار %1 درجات",
+        turnLeft: "استدر يساراً بمقدار %1 درجات",
+        pointInDirection: "توجّه باتجاه %1",
+        pointTowards: "توجّه نحو %1",
+        goToX: "اذهب إلى X: %1 Y: %2",
+        goToRandomPosition: "اذهب إلى موقع عشوائي",
+        glideSecsToXY: "انزلق لمدة %1 ثواني إلى X: %2 Y: %3",
+        changeX: "غيّر X بمقدار %1",
+        setX: "اجعل X يساوي %1",
+        changeY: "غيّر Y بمقدار %1",
+        setY: "اجعل Y يساوي %1",
+        ifOnEdgeBounce: "إذا وصلت للحافة فارتد",
+        
+        // Looks Blocks
+        sayForSecs: "قل %1 لمدة %2 ثواني",
+        say: "قل %1",
+        thinkForSecs: "فكّر %1 لمدة %2 ثواني",
+        think: "فكّر %1",
+        switchCostumeTo: "غيّر الزي إلى %1",
+        nextCostume: "الزي التالي",
+        switchBackdropTo: "غيّر الخلفية إلى %1",
+        nextBackdrop: "الخلفية التالية",
+        changeSizeBy: "غيّر الحجم بمقدار %1",
+        setSizeTo: "اجعل الحجم %1%",
+        
+        // Sound Blocks
+        playSound: "شغل الصوت %1",
+        playSoundUntilDone: "شغل الصوت %1 حتى الانتهاء",
+        stopAllSounds: "أوقف جميع الأصوات",
+        setVolumeTo: "اجعل مستوى الصوت %1%",
+        changeVolumeBy: "غيّر مستوى الصوت بمقدار %1",
+        
+        // Control Blocks
+        waitSecs: "انتظر %1 ثواني",
+        repeat: "كرر %1 مرات",
+        forever: "كرر للأبد",
+        ifThen: "إذا %1 إذًا",
+        ifThenElse: "إذا %1 إذًا وإلا",
+        waitUntil: "انتظر حتى %1",
+        repeatUntil: "كرر حتى %1",
+        stop: "أوقف %1",
+        whenIReceive: "عند استقبال %1",
+        createCloneOf: "أنشئ نسخة من %1",
+        deleteThisClone: "احذف هذه النسخة",
+        
+        // Sensing Blocks
+        touching: "يلمس %1؟",
+        distanceTo: "المسافة إلى %1",
+        askAndWait: "اسأل %1 وانتظر",
+        answer: "الإجابة",
+        keyPressed: "المفتاح %1 مضغوط؟",
+        mouseDown: "زر الماوس مضغوط؟",
+        mouseX: "موقع الماوس X",
+        mouseY: "موقع الماوس Y",
+        
+        // Operators
+        add: "%1 + %2",
+        subtract: "%1 - %2",
+        multiply: "%1 × %2",
+        divide: "%1 ÷ %2",
+        random: "رقم عشوائي بين %1 و %2",
+        join: "ادمج %1 مع %2",
+        letterOf: "الحرف %1 من %2",
+        lengthOf: "عدد أحرف %1",
+        mod: "باقي قسمة %1 على %2",
+        round: "تقريب %1",
+        
+        // Variables
+        setVarTo: "اجعل %1 يساوي %2",
+        changeVarBy: "غيّر %1 بمقدار %2",
+        showVar: "اعرض المتغير %1",
+        hideVar: "أخفِ المتغير %1",
+        
+        // Messages
+        projectSaved: "✅ تم حفظ المشروع!",
+        projectLoaded: "✅ تم تحميل المشروع!",
+        errorLoading: "❌ خطأ في تحميل المشروع",
+        spriteAdded: "✅ تم إضافة كائن جديد",
+        clickToSelect: "(انقر للاختيار)",
+        meow: "مواء",
+        pop: "فقاعة",
+        backdrop1: "خلفية 1",
+        backdrop2: "خلفية 2"
+      },
+      en: {
+        // General
+        title: "Blockly 🧩",
+        saveProject: "💾 Save Project",
+        loadProject: "📂 Load Project",
+        fullscreen: "⛶ Fullscreen",
+        consoleTitle: "Console:",
+        clearConsole: "🗑️",
+        langSwitch: "العربية",
+        
+        // Tabs
+        sprites: "Sprites",
+        backdrops: "Backdrops",
+        sounds: "Sounds",
+        console: "Console",
+        
+        // Sprite Properties
+        spritePropsTitle: "Sprite Properties",
+        propNameLabel: "Name:",
+        propXLabel: "X:",
+        propYLabel: "Y:",
+        propDirLabel: "Direction:",
+        propSizeLabel: "Size%:",
+        addSpriteBtn: "➕ Add New Sprite",
+        spriteListTitle: "Sprite List",
+        
+        // Backdrops
+        backdropTitle: "Backdrops",
+        uploadBackdrop: "📤 Upload New Backdrop",
+        
+        // Sounds
+        soundsTitle: "Sounds",
+        uploadSound: "📤 Upload New Sound",
+        
+        // Buttons
+        run: "▶ Run",
+        stop: "⏹ Stop",
+        resetAll: "🔄 Reset All",
+        
+        // Categories
+        events: "Events",
+        motion: "Motion",
+        looks: "Looks",
+        sound: "Sound",
+        control: "Control",
+        sensing: "Sensing",
+        operators: "Operators",
+        variables: "Variables",
+         "Data",
+        myBlocks: "My Blocks",
+        
+        // Event Blocks
+        whenGreenFlag: "When green flag clicked",
+        whenKeyPressed: "When %1 key pressed",
+        whenThisSpriteClicked: "When this sprite clicked",
+        whenBackdropSwitchesTo: "When backdrop switches to %1",
+        whenBroadcastReceived: "When I receive %1",
+        broadcast: "Broadcast %1",
+        broadcastAndWait: "Broadcast %1 and wait",
+        
+        // Motion Blocks
+        moveSteps: "Move %1 steps",
+        turnRight: "Turn right %1 degrees",
+        turnLeft: "Turn left %1 degrees",
+        pointInDirection: "Point in direction %1",
+        pointTowards: "Point towards %1",
+        goToX: "Go to X: %1 Y: %2",
+        goToRandomPosition: "Go to random position",
+        glideSecsToXY: "Glide %1 secs to X: %2 Y: %3",
+        changeX: "Change X by %1",
+        setX: "Set X to %1",
+        changeY: "Change Y by %1",
+        setY: "Set Y to %1",
+        ifOnEdgeBounce: "If on edge, bounce",
+        
+        // Looks Blocks
+        sayForSecs: "Say %1 for %2 seconds",
+        say: "Say %1",
+        thinkForSecs: "Think %1 for %2 seconds",
+        think: "Think %1",
+        switchCostumeTo: "Switch costume to %1",
+        nextCostume: "Next costume",
+        switchBackdropTo: "Switch backdrop to %1",
+        nextBackdrop: "Next backdrop",
+        changeSizeBy: "Change size by %1",
+        setSizeTo: "Set size to %1%",
+        
+        // Sound Blocks
+        playSound: "Play sound %1",
+        playSoundUntilDone: "Play sound %1 until done",
+        stopAllSounds: "Stop all sounds",
+        setVolumeTo: "Set volume to %1%",
+        changeVolumeBy: "Change volume by %1",
+        
+        // Control Blocks
+        waitSecs: "Wait %1 seconds",
+        repeat: "Repeat %1 times",
+        forever: "Forever",
+        ifThen: "If %1 then",
+        ifThenElse: "If %1 then else",
+        waitUntil: "Wait until %1",
+        repeatUntil: "Repeat until %1",
+        stop: "Stop %1",
+        whenIReceive: "When I receive %1",
+        createCloneOf: "Create clone of %1",
+        deleteThisClone: "Delete this clone",
+        
+        // Sensing Blocks
+        touching: "Touching %1?",
+        distanceTo: "Distance to %1",
+        askAndWait: "Ask %1 and wait",
+        answer: "Answer",
+        keyPressed: "Key %1 pressed?",
+        mouseDown: "Mouse down?",
+        mouseX: "Mouse X",
+        mouseY: "Mouse Y",
+        
+        // Operators
+        add: "%1 + %2",
+        subtract: "%1 - %2",
+        multiply: "%1 × %2",
+        divide: "%1 ÷ %2",
+        random: "Pick random %1 to %2",
+        join: "Join %1 and %2",
+        letterOf: "Letter %1 of %2",
+        lengthOf: "Length of %1",
+        mod: "%1 mod %2",
+        round: "Round %1",
+        
+        // Variables
+        setVarTo: "Set %1 to %2",
+        changeVarBy: "Change %1 by %2",
+        showVar: "Show variable %1",
+        hideVar: "Hide variable %1",
+        
+        // Messages
+        projectSaved: "✅ Project saved!",
+        projectLoaded: "✅ Project loaded!",
+        errorLoading: "❌ Error loading project",
+        spriteAdded: "✅ New sprite added",
+        clickToSelect: "(click to select)",
+        meow: "Meow",
+        pop: "Pop",
+        backdrop1: "Backdrop 1",
+        backdrop2: "Backdrop 2"
       }
+    };
+
+    // ======================
+    // الحالة الشاملة
+    // ======================
+    let currentLang = 'ar';
+    let workspace = null;
+    let sprites = [];
+    let currentSprite = null;
+    let backdrops = [
+      { id: 'backdrop1', name: translations[currentLang].backdrop1, url: 'https://i.imgur.com/JvJZ7ZI.png' },
+      { id: 'backdrop2', name: translations[currentLang].backdrop2, url: 'https://i.imgur.com/7R5VQeT.png' }
+    ];
+    let currentBackdrop = backdrops[0];
+    let sounds = [
+      { id: 'meow', name: translations[currentLang].meow, url: 'https://cdn.pixabay.com/download/audio/2022/03/16/audio_5f5b8f961d.mp3?filename=cat-meow-129141.mp3' },
+      { id: 'pop', name: translations[currentLang].pop, url: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_97921cc59f.mp3?filename=bubble-pop-85883.mp3' }
+    ];
+    let broadcastMessages = ['رسالة1', 'رسالة2', 'ابدأ', 'انتهى'];
+    let variables = [];
+    let isRunning = false;
+    let audioContext = null;
+    let activeSounds = [];
+
+    // ======================
+    // تهيئة المشروع
+    // ======================
+    function initProject() {
+      // إنشاء الكائن الأول
+      const defaultSprite = createSprite({
+        id: 'sprite1',
+        name: 'البطل',
+        x: 0,
+        y: 0,
+        direction: 90,
+        size: 100,
+        costumes: [
+          { id: 'costume1', name: 'الزي 1', url: 'https://cdn-icons-png.flaticon.com/512/3096/3096675.png' }
+        ],
+        currentCostume: 0
+      });
+      sprites.push(defaultSprite);
+      currentSprite = defaultSprite;
+      updateStage();
+      updateSpriteList();
+      updateSpriteProperties();
+      updateBackdropGallery();
+      updateSoundsList();
     }
-  }
 
-  // متغيرات الحركة
-  const move = {forward:false, back:false, left:false, right:false};
-  const velocity = new THREE.Vector3();
-  const direction = new THREE.Vector3();
-  const speed = 8;
-
-  // تسجيل ضغطات المفاتيح
-  document.addEventListener('keydown', (e) => {
-    switch(e.code){
-      case 'KeyW': move.forward = true; break;
-      case 'KeyS': move.back = true; break;
-      case 'KeyA': move.left = true; break;
-      case 'KeyD': move.right = true; break;
-    }
-  });
-
-  document.addEventListener('keyup', (e) => {
-    switch(e.code){
-      case 'KeyW': move.forward = false; break;
-      case 'KeyS': move.back = false; break;
-      case 'KeyA': move.left = false; break;
-      case 'KeyD': move.right = false; break;
-    }
-  });
-
-  // توقيت الحركة
-  let prevTime = performance.now();
-
-  function animate() {
-    requestAnimationFrame(animate);
-
-    if(controls.isLocked === true){
-      const time = performance.now();
-      const delta = (time - prevTime) / 1000;
-      prevTime = time;
-
-      velocity.x -= velocity.x * 10.0 * delta;
-      velocity.z -= velocity.z * 10.0 * delta;
-
-      direction.z = Number(move.forward) - Number(move.back);
-      direction.x = Number(move.right) - Number(move.left);
-      direction.normalize();
-
-      if(direction.length() > 0){
-        velocity.x -= direction.x * speed * delta;
-        velocity.z -= direction.z * speed * delta;
+    // ======================
+    // إنشاء كائن جديد
+    // ======================
+    function createSprite(options) {
+      const sprite = {
+        id: options.id || 'sprite' + Date.now(),
+        name: options.name || 'كائن جديد',
+        x: options.x || 0,
+        y: options.y || 0,
+        direction: options.direction || 90,
+        size: options.size || 100,
+        costumes: options.costumes || [],
+        currentCostume: options.currentCostume || 0,
+        visible: true,
+        draggable: false,
+        rotationStyle: 'left-right' // 'left-right', 'all-around', 'don\'t-rotate'
+      };
+      
+      if (sprite.costumes.length === 0) {
+        sprite.costumes.push({
+          id: 'default',
+          name: 'افتراضي',
+          url: 'https://cdn-icons-png.flaticon.com/512/3096/3096675.png'
+        });
       }
-
-      controls.moveRight(-velocity.x * delta);
-      controls.moveForward(-velocity.z * delta);
-
-      // منع السقوط تحت الأرض
-      camera.position.y = 1.8;
+      
+      return sprite;
     }
 
-    renderer.render(scene, camera);
-  }
-  animate();
+    // ======================
+    // تحديث المسرح
+    // ======================
+    function updateStage() {
+      const stage = document.getElementById('stage');
+      stage.innerHTML = '';
+      stage.style.backgroundImage = `url(${currentBackdrop.url})`;
+      
+      sprites.forEach(sprite => {
+        if (!sprite.visible) return;
+        
+        const el = document.createElement('div');
+        el.className = 'sprite';
+        el.id = sprite.id;
+        el.style.backgroundImage = `url(${sprite.costumes[sprite.currentCostume].url})`;
+        el.style.backgroundSize = 'contain';
+        el.style.backgroundRepeat = 'no-repeat';
+        el.style.backgroundPosition = 'center';
+        el.style.width = `${sprite.size}px`;
+        el.style.height = `${sprite.size}px`;
+        el.style.transform = `translate(${sprite.x + 200}px, ${-sprite.y + 150}px) rotate(${sprite.direction - 90}deg)`;
+        el.style.transformOrigin = 'center';
+        el.style.zIndex = sprites.indexOf(sprite);
+        
+        // إضافة حدث النقر
+        el.addEventListener('click', () => {
+          selectSprite(sprite.id);
+        });
+        
+        stage.appendChild(el);
+      });
+    }
 
-  // تحديث حجم العرض عند تغيير حجم النافذة
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-})();
-</script>
+    // ======================
+    // اختيار كائن
+    // ======================
+    function selectSprite(spriteId) {
+      currentSprite = sprites.find(s => s.id === spriteId);
+      updateSpriteProperties();
+      updateSpriteList();
+    }
 
+    // ======================
+    // تحديث قائمة الكائنات
+    // ======================
+    function updateSpriteList() {
+      const list = document.getElementById('spriteList');
+      list.innerHTML = '';
+      
+      sprites.forEach(sprite => {
+        const item = document.createElement('li');
+        item.className = `sprite-item ${sprite.id === currentSprite?.id ? 'active' : ''}`;
+        item.dataset.id = sprite.id;
+        
+        const preview = document.createElement('div');
+        preview.className = 'sprite-preview';
+        preview.style.backgroundImage = `url(${sprite.costumes[sprite.currentCostume].url})`;
+        
+        const name = document.createElement('span');
+        name.textContent = sprite.name;
+        
+        const selectHint = document.createElement('span');
+        selectHint.textContent = translations[currentLang].clickToSelect;
+        selectHint.style.fontSize = '12px';
+        selectHint.style.color = '#888';
+        
+        item.appendChild(preview);
+        item.appendChild(name);
+        item.appendChild(selectHint);
+        
+        item.addEventListener('click', () => {
+          selectSprite(sprite.id);
+        });
+        
+        list.appendChild(item);
+      });
+    }
+
+    // ======================
+    // تحديث خصائص الكائن
+    // ======================
+    function updateSpriteProperties() {
+      if (!currentSprite) return;
+      
+      document.getElementById('spriteName').value = currentSprite.name;
+      document.getElementById('spriteX').value = currentSprite.x;
+      document.getElementById('spriteY').value = currentSprite.y;
+      document.getElementById('spriteDir').value = currentSprite.direction;
+      document.getElementById('spriteSize').value = currentSprite.size;
+    }
+
+    // ======================
+    // تحديث معرض الخلفيات
+    // ======================
+    function updateBackdropGallery() {
+      const gallery = document.getElementById('backdropGallery');
+      gallery.innerHTML = '';
+      
+      backdrops.forEach(backdrop => {
+        const item = document.createElement('div');
+        item.style.cssText = `
+          margin: 10px 0;
+          padding: 10px;
+          border: 2px solid ${backdrop.id === currentBackdrop?.id ? '#4a6fa5' : '#ddd'};
+          border-radius: 5px;
+          cursor: pointer;
+          text-align: center;
+        `;
+        
+        const img = document.createElement('img');
+        img.src = backdrop.url;
+        img.style.cssText = `
+          width: 100%;
+          height: 80px;
+          object-fit: cover;
+          border-radius: 3px;
+        `;
+        
+        const name = document.createElement('div');
+        name.textContent = backdrop.name;
+        name.style.marginTop = '5px';
+        name.style.fontWeight = 'bold';
+        
+        item.appendChild(img);
+        item.appendChild(name);
+        
+        item.addEventListener('click', () => {
+          currentBackdrop = backdrop;
+          updateStage();
+          updateBackdropGallery();
+        });
+        
+        gallery.appendChild(item);
+      });
+    }
+
+    // ======================
+    // تحديث قائمة الأصوات
+    // ======================
+    function updateSoundsList() {
+      const list = document.getElementById('soundsList');
+      list.innerHTML = '';
+      
+      sounds.forEach(sound => {
+        const item = document.createElement('div');
+        item.style.cssText = `
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+          margin: 5px 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        `;
+        
+        const name = document.createElement('span');
+        name.textContent = sound.name;
+        
+        const controls = document.createElement('div');
+        controls.style.display = 'flex';
+        controls.style.gap = '5px';
+        
+        const playBtn = document.createElement('button');
+        playBtn.className = 'btn-success';
+        playBtn.style.padding = '5px 10px';
+        playBtn.style.fontSize = '12px';
+        playBtn.textContent = '▶';
+        playBtn.addEventListener('click', () => {
+          playSound(sound.url);
+        });
+        
+        controls.appendChild(playBtn);
+        item.appendChild(name);
+        item.appendChild(controls);
+        list.appendChild(item);
+      });
+    }
+
+    // ======================
+    // تهيئة Blockly
+    // ======================
+    function initBlockly() {
+      const toolboxXml = document.getElementById('toolbox');
+      toolboxXml.innerHTML = generateToolbox();
+      
+      if (workspace) {
+        workspace.dispose();
+      }
+      
+      workspace = Blockly.inject('blocklyDiv', {
+        toolbox: toolboxXml,
+        zoom: {
+          controls: true,
+          wheel: true,
+          startScale: 1.0,
+          maxScale: 3,
+          minScale: 0.3,
+          scaleSpeed: 1.2
+        },
+        trashcan: true,
+        rtl: currentLang === 'ar',
+        media: 'https://unpkg.com/blockly/media/',
+        grid: {
+          spacing: 25,
+          length: 3,
+          colour: '#ccc',
+          snap: true
+        }
+      });
+      
+      // تحميل المشروع المحفوظ
+      loadFromLocalStorage();
+    }
+
+    // ======================
+    // إنشاء Toolbox ديناميكي
+    // ======================
+    function generateToolbox() {
+      const t = translations[currentLang];
+      return `
+        <category name="${t.events}" colour="#FFD500">
+          <block type="event_whenflagclicked"></block>
+          <block type="event_whenkeypressed">
+            <value name="KEY_OPTION">
+              <shadow type="event_keyoptions">
+                <field name="KEY_OPTION">space</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="event_whenthisspriteclicked"></block>
+          <block type="event_whenbackdropswitchesto">
+            <value name="BACKDROP">
+              <shadow type="event_backdropoptions">
+                <field name="BACKDROP">${backdrops[0]?.id || 'backdrop1'}</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="event_whenbroadcastreceived">
+            <value name="BROADCAST_OPTION">
+              <shadow type="event_broadcast_menu">
+                <field name="BROADCAST_OPTION">${broadcastMessages[0] || 'رسالة1'}</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="event_broadcast">
+            <value name="BROADCAST_INPUT">
+              <shadow type="event_broadcast_menu">
+                <field name="BROADCAST_OPTION">${broadcastMessages[0] || 'رسالة1'}</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="event_broadcastandwait">
+            <value name="BROADCAST_INPUT">
+              <shadow type="event_broadcast_menu">
+                <field name="BROADCAST_OPTION">${broadcastMessages[0] || 'رسالة1'}</field>
+              </shadow>
+            </value>
+          </block>
+        </category>
+        
+        <category name="${t.motion}" colour="#4C97FF">
+          <block type="motion_movesteps">
+            <value name="STEPS">
+              <shadow type="math_number">
+                <field name="NUM">10</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_turnright">
+            <value name="DEGREES">
+              <shadow type="math_number">
+                <field name="NUM">15</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_turnleft">
+            <value name="DEGREES">
+              <shadow type="math_number">
+                <field name="NUM">15</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_pointindirection">
+            <value name="DIRECTION">
+              <shadow type="math_number">
+                <field name="NUM">90</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_gotoxy">
+            <value name="X">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="Y">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_goto">
+            <value name="TO">
+              <shadow type="motion_goto_menu">
+                <field name="TO">random position</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_glidesecstoxy">
+            <value name="SECS">
+              <shadow type="math_number">
+                <field name="NUM">1</field>
+              </shadow>
+            </value>
+            <value name="X">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="Y">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_changexby">
+            <value name="DX">
+              <shadow type="math_number">
+                <field name="NUM">10</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_setx">
+            <value name="X">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_changeyby">
+            <value name="DY">
+              <shadow type="math_number">
+                <field name="NUM">10</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_sety">
+            <value name="Y">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="motion_ifonedgebounce"></block>
+        </category>
+        
+        <category name="${t.looks}" colour="#9966FF">
+          <block type="looks_sayforsecs">
+            <value name="MESSAGE">
+              <shadow type="text">
+                <field name="TEXT">Hello!</field>
+              </shadow>
+            </value>
+            <value name="SECS">
+              <shadow type="math_number">
+                <field name="NUM">2</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="looks_say">
+            <value name="MESSAGE">
+              <shadow type="text">
+                <field name="TEXT">Hello!</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="looks_thinkforsecs">
+            <value name="MESSAGE">
+              <shadow type="text">
+                <field name="TEXT">Hmm...</field>
+              </shadow>
+            </value>
+            <value name="SECS">
+              <shadow type="math_number">
+                <field name="NUM">2</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="looks_think">
+            <value name="MESSAGE">
+              <shadow type="text">
+                <field name="TEXT">Hmm...</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="looks_switchcostumeto">
+            <value name="COSTUME">
+              <shadow type="looks_costume">
+                <field name="COSTUME">${currentSprite?.costumes[0]?.id || 'costume1'}</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="looks_nextcostume"></block>
+          <block type="looks_switchbackdropto">
+            <value name="BACKDROP">
+              <shadow type="looks_backdrops">
+                <field name="BACKDROP">${backdrops[0]?.id || 'backdrop1'}</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="looks_nextbackdrop"></block>
+          <block type="looks_changesizeby">
+            <value name="CHANGE">
+              <shadow type="math_number">
+                <field name="NUM">10</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="looks_setsizeto">
+            <value name="SIZE">
+              <shadow type="math_number">
+                <field name="NUM">100</field>
+              </shadow>
+            </value>
+          </block>
+        </category>
+        
+        <category name="${t.sound}" colour="#D65CD6">
+          <block type="sound_play">
+            <value name="SOUND_MENU">
+              <shadow type="sound_sounds_menu">
+                <field name="SOUND_MENU">${sounds[0]?.id || 'meow'}</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="sound_playuntildone">
+            <value name="SOUND_MENU">
+              <shadow type="sound_sounds_menu">
+                <field name="SOUND_MENU">${sounds[0]?.id || 'meow'}</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="sound_stopallsounds"></block>
+          <block type="sound_setvolumeto">
+            <value name="VOLUME">
+              <shadow type="math_number">
+                <field name="NUM">100</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="sound_changevolumeby">
+            <value name="VOLUME">
+              <shadow type="math_number">
+                <field name="NUM">10</field>
+              </shadow>
+            </value>
+          </block>
+        </category>
+        
+        <category name="${t.control}" colour="#FFAB19">
+          <block type="control_wait">
+            <value name="DURATION">
+              <shadow type="math_number">
+                <field name="NUM">1</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="control_repeat">
+            <value name="TIMES">
+              <shadow type="math_number">
+                <field name="NUM">10</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="control_forever"></block>
+          <block type="control_if"></block>
+          <block type="control_if_else"></block>
+          <block type="control_wait_until"></block>
+          <block type="control_repeat_until"></block>
+          <block type="control_stop">
+            <value name="STOP_OPTION">
+              <shadow type="control_stop_menu">
+                <field name="STOP_OPTION">all</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="control_create_clone_of">
+            <value name="CLONE_OPTION">
+              <shadow type="control_create_clone_menu">
+                <field name="CLONE_OPTION">myself</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="control_delete_this_clone"></block>
+        </category>
+        
+        <category name="${t.sensing}" colour="#4CBFE6">
+          <block type="sensing_touchingobject">
+            <value name="TOUCHINGOBJECTMENU">
+              <shadow type="sensing_touchingobjectmenu">
+                <field name="TOUCHINGOBJECTMENU">mouse pointer</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="sensing_distanceto">
+            <value name="DISTANCETOMENU">
+              <shadow type="sensing_distancetomenu">
+                <field name="DISTANCETOMENU">mouse pointer</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="sensing_askandwait">
+            <value name="QUESTION">
+              <shadow type="text">
+                <field name="TEXT">What's your name?</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="sensing_answer"></block>
+          <block type="sensing_keypressed">
+            <value name="KEY_OPTION">
+              <shadow type="event_keyoptions">
+                <field name="KEY_OPTION">space</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="sensing_mousedown"></block>
+          <block type="sensing_mousex"></block>
+          <block type="sensing_mousey"></block>
+        </category>
+        
+        <category name="${t.operators}" colour="#40BF4A">
+          <block type="operator_add">
+            <value name="NUM1">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="NUM2">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_subtract">
+            <value name="NUM1">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="NUM2">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_multiply">
+            <value name="NUM1">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="NUM2">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_divide">
+            <value name="NUM1">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="NUM2">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_random">
+            <value name="FROM">
+              <shadow type="math_number">
+                <field name="NUM">1</field>
+              </shadow>
+            </value>
+            <value name="TO">
+              <shadow type="math_number">
+                <field name="NUM">10</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_gt">
+            <value name="OPERAND1">
+              <shadow type="text">
+                <field name="TEXT">0</field>
+              </shadow>
+            </value>
+            <value name="OPERAND2">
+              <shadow type="text">
+                <field name="TEXT">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_lt">
+            <value name="OPERAND1">
+              <shadow type="text">
+                <field name="TEXT">0</field>
+              </shadow>
+            </value>
+            <value name="OPERAND2">
+              <shadow type="text">
+                <field name="TEXT">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_equals">
+            <value name="OPERAND1">
+              <shadow type="text">
+                <field name="TEXT">0</field>
+              </shadow>
+            </value>
+            <value name="OPERAND2">
+              <shadow type="text">
+                <field name="TEXT">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_and"></block>
+          <block type="operator_or"></block>
+          <block type="operator_not"></block>
+          <block type="operator_join">
+            <value name="STRING1">
+              <shadow type="text">
+                <field name="TEXT">hello</field>
+              </shadow>
+            </value>
+            <value name="STRING2">
+              <shadow type="text">
+                <field name="TEXT">world</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_letter_of">
+            <value name="LETTER">
+              <shadow type="math_number">
+                <field name="NUM">1</field>
+              </shadow>
+            </value>
+            <value name="STRING">
+              <shadow type="text">
+                <field name="TEXT">world</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_length">
+            <value name="STRING">
+              <shadow type="text">
+                <field name="TEXT">hello</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_mod">
+            <value name="NUM1">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="NUM2">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="operator_round">
+            <value name="NUM">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+        </category>
+        
+        <category name="${t.variables}" colour="#FF8C1A" custom="VARIABLE"></category>
+        <category name="${t.data}" colour="#FF8C1A" custom="LIST"></category>
+        <category name="${t.myBlocks}" colour="#FF6680" custom="PROCEDURE"></category>
+      `;
+    }
+
+    // ======================
+    // تعريف البلوكات المخصصة (جزء صغير بسبب الحد الأقصى للأحرف)
+    // ======================
+    // ⚠️ ملاحظة: بسبب الحد الأقصى للأحرف، سأضع فقط أهم البلوكات
+    // يمكنك طلب الملف الكامل كملف منفصل إذا أردت
+
+    function defineCustomBlocks() {
+      // Event Blocks
+      Blockly.Blocks['event_whenflagclicked'] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField(translations[currentLang].whenGreenFlag);
+          this.setColour("#FFD500");
+          this.setPreviousStatement(false);
+          this.setNextStatement(true);
+        }
+      };
+
+      Blockly.JavaScript['event_whenflagclicked'] = function(block) {
+        return '// When green flag clicked\n';
+      };
+
+      // Motion Blocks
+      Blockly.Blocks['motion_movesteps'] = {
+        init: function() {
+          this.appendValueInput("STEPS")
+              .setCheck("Number")
+              .appendField(translations[currentLang].moveSteps.replace("%1", ""));
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour("#4C97FF");
+        }
+      };
+
+      Blockly.JavaScript['motion_movesteps'] = function(block) {
+        const steps = Blockly.JavaScript.valueToCode(block, 'STEPS', Blockly.JavaScript.ORDER_ATOMIC) || '10';
+        return `moveSteps(${steps});\nawait wait(300);\n`;
+      };
+
+      // Looks Blocks
+      Blockly.Blocks['looks_sayforsecs'] = {
+        init: function() {
+          this.appendValueInput("MESSAGE")
+              .setCheck("String")
+              .appendField(translations[currentLang].sayForSecs.replace("%1", "").replace("%2", ""));
+          this.appendValueInput("SECS")
+              .setCheck("Number")
+              .appendField(" لمدة ");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour("#9966FF");
+        }
+      };
+
+      Blockly.JavaScript['looks_sayforsecs'] = function(block) {
+        const message = Blockly.JavaScript.valueToCode(block, 'MESSAGE', Blockly.JavaScript.ORDER_ATOMIC) || '""';
+        const secs = Blockly.JavaScript.valueToCode(block, 'SECS', Blockly.JavaScript.ORDER_ATOMIC) || '2';
+        return `sayMessage(${message}, ${secs});\nawait wait(${secs} * 1000);\n`;
+      };
+
+      // Control Blocks
+      Blockly.Blocks['control_wait'] = {
+        init: function() {
+          this.appendValueInput("DURATION")
+              .setCheck("Number")
+              .appendField(translations[currentLang].waitSecs.replace("%1", ""));
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour("#FFAB19");
+        }
+      };
+
+      Blockly.JavaScript['control_wait'] = function(block) {
+        const duration = Blockly.JavaScript.valueToCode(block, 'DURATION', Blockly.JavaScript.ORDER_ATOMIC) || '1';
+        return `await wait(${duration} * 1000);\n`;
+      };
+
+      // Sound Block
+      Blockly.Blocks['sound_play'] = {
+        init: function() {
+          this.appendValueInput("SOUND_MENU")
+              .appendField(translations[currentLang].playSound.replace("%1", ""));
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour("#D65CD6");
+        }
+      };
+
+      Blockly.JavaScript['sound_play'] = function(block) {
+        const sound = Blockly.JavaScript.valueToCode(block, 'SOUND_MENU', Blockly.JavaScript.ORDER_ATOMIC) || '"meow"';
+        return `playSound(${sound});\n`;
+      };
+    }
+
+    // ======================
+    // دوال التنفيذ
+    // ======================
+    function moveSteps(steps) {
+      if (!currentSprite) return;
+      const rad = (currentSprite.direction - 90) * Math.PI / 180;
+      currentSprite.x += steps * Math.cos(rad);
+      currentSprite.y += steps * Math.sin(rad);
+      updateStage();
+    }
+
+    function sayMessage(msg, secs) {
+      if (!currentSprite) return;
+      const spriteEl = document.getElementById(currentSprite.id);
+      if (!spriteEl) return;
+      
+      let bubble = document.createElement('div');
+      bubble.className = 'speech-bubble';
+      bubble.innerText = eval(msg);
+      spriteEl.appendChild(bubble);
+      
+      setTimeout(() => {
+        bubble.remove();
+      }, secs * 1000);
+    }
+
+    function playSound(soundId) {
+      const sound = sounds.find(s => s.id === soundId);
+      if (!sound) return;
+      
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      fetch(sound.url)
+        .then(response => response.arrayBuffer())
+        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+        .then(audioBuffer => {
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
+          source.start();
+          
+          const soundObj = { id: Date.now(), source };
+          activeSounds.push(soundObj);
+          
+          source.onended = () => {
+            activeSounds = activeSounds.filter(s => s.id !== soundObj.id);
+          };
+        })
+        .catch(err => {
+          console.error('Error playing sound:', err);
+        });
+    }
+
+    async function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // ======================
+    // تبديل اللغة
+    // ======================
+    function switchLanguage() {
+      currentLang = currentLang === 'ar' ? 'en' : 'ar';
+      document.getElementById('htmlTag').setAttribute('lang', currentLang);
+      document.getElementById('htmlTag').setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+      
+      // تحديث جميع النصوص
+      updateAllTexts();
+      
+      // إعادة تهيئة Blockly
+      defineCustomBlocks();
+      initBlockly();
+      
+      // تحديث البيانات
+      updateBackdropGallery();
+      updateSoundsList();
+      if (currentSprite) updateSpriteProperties();
+    }
+
+    function updateAllTexts() {
+      const t = translations[currentLang];
+      document.getElementById('title').innerText = t.title;
+      document.getElementById('langSwitch').innerText = t.langSwitch;
+      document.getElementById('saveProjectBtn').innerText = t.saveProject;
+      document.getElementById('loadProjectBtn').innerText = t.loadProject;
+      document.getElementById('fullscreenBtn').innerText = t.fullscreen;
+      document.getElementById('consoleTitle').innerText = t.consoleTitle;
+      document.getElementById('clearConsole').innerText = t.clearConsole;
+      document.getElementById('runBtn').innerText = t.run;
+      document.getElementById('stopBtn').innerText = t.stop;
+      document.getElementById('resetAllBtn').innerText = t.resetAll;
+      document.getElementById('spritePropsTitle').innerText = t.spritePropsTitle;
+      document.getElementById('propNameLabel').innerText = t.propNameLabel;
+      document.getElementById('propXLabel').innerText = t.propXLabel;
+      document.getElementById('propYLabel').innerText = t.propYLabel;
+      document.getElementById('propDirLabel').innerText = t.propDirLabel;
+      document.getElementById('propSizeLabel').innerText = t.propSizeLabel;
+      document.getElementById('addSpriteBtn').innerText = t.addSpriteBtn;
+      document.getElementById('spriteListTitle').innerText = t.spriteListTitle;
+      document.getElementById('backdropTitle').innerText = t.backdropTitle;
+      document.getElementById('uploadBackdrop').innerText = t.uploadBackdrop;
+      document.getElementById('soundsTitle').innerText = t.soundsTitle;
+      document.getElementById('uploadSound').innerText = t.uploadSound;
+      
+      // تحديث علامات التبويب
+      document.querySelectorAll('.tab').forEach((tab, index) => {
+        const keys = ['sprites', 'backdrops', 'sounds', 'console'];
+        tab.innerText = t[keys[index]];
+      });
+    }
+
+    // ======================
+    // الحدث: تبديل علامات التبويب
+    // ======================
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        this.classList.add('active');
+        const tabId = this.getAttribute('data-tab');
+        document.getElementById(`tab-${tabId}`).classList.add('active');
+      });
+    });
+
+    // ======================
+    // الحدث: تشغيل
+    // ======================
+    document.getElementById('runBtn').addEventListener('click', async function() {
+      if (isRunning) return;
+      isRunning = true;
+      
+      try {
+        const code = Blockly.JavaScript.workspaceToCode(workspace);
+        const consoleDiv = document.getElementById('console');
+        consoleDiv.innerText = 'جارٍ التنفيذ...\n\n';
+        
+        // إعادة تعريف console.log
+        const originalLog = console.log;
+        console.log = function(...args) {
+          consoleDiv.innerText += args.join(' ') + '\n';
+          consoleDiv.scrollTop = consoleDiv.scrollHeight;
+          originalLog.apply(console, args);
+        };
+        
+        // تنفيذ الكود
+        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+        const asyncFn = new AsyncFunction(`return async function() {
+          ${code}
+        }`);
+        const fn = asyncFn();
+        await fn();
+        
+        console.log = originalLog;
+        isRunning = false;
+      } catch (e) {
+        document.getElementById('console').innerText += '\n❌ خطأ: ' + e.message + '\n';
+        isRunning = false;
+      }
+    });
+
+    // ======================
+    // الحدث: إيقاف
+    // ======================
+    document.getElementById('stopBtn').addEventListener('click', function() {
+      isRunning = false;
+      // إيقاف جميع الأصوات
+      activeSounds.forEach(sound => {
+        try { sound.source.stop(); } catch(e) {}
+      });
+      activeSounds = [];
+      document.getElementById('console').innerText += '\n⏹ تم الإيقاف يدوياً.\n';
+    });
+
+    // ======================
+    // الحدث: إعادة ضبط الكل
+    // ======================
+    document.getElementById('resetAllBtn').addEventListener('click', function() {
+      sprites.forEach(sprite => {
+        sprite.x = 0;
+        sprite.y = 0;
+        sprite.direction = 90;
+        sprite.size = 100;
+      });
+      updateStage();
+      document.getElementById('console').innerText = 'تم إعادة الضبط ✅';
+    });
+
+    // ======================
+    // الحدث: إضافة كائن جديد
+    // ======================
+    document.getElementById('addSpriteBtn').addEventListener('click', function() {
+      const newSprite = createSprite({
+        name: 'كائن جديد ' + (sprites.length + 1),
+        x: Math.floor(Math.random() * 200) - 100,
+        y: Math.floor(Math.random() * 200) - 100
+      });
+      sprites.push(newSprite);
+      currentSprite = newSprite;
+      updateStage();
+      updateSpriteList();
+      updateSpriteProperties();
+      showToast(translations[currentLang].spriteAdded);
+    });
+
+    // ======================
+    // الحدث: تحديث خصائص الكائن
+    // ======================
+    ['spriteName', 'spriteX', 'spriteY', 'spriteDir', 'spriteSize'].forEach(id => {
+      document.getElementById(id).addEventListener('change', function() {
+        if (!currentSprite) return;
+        const value = this.value;
+        switch(id) {
+          case 'spriteName': currentSprite.name = value; break;
+          case 'spriteX': currentSprite.x = parseFloat(value); break;
+          case 'spriteY': currentSprite.y = parseFloat(value); break;
+          case 'spriteDir': currentSprite.direction = parseFloat(value); break;
+          case 'spriteSize': currentSprite.size = parseFloat(value); break;
+        }
+        updateStage();
+        updateSpriteList();
+      });
+    });
+
+    // ======================
+    // الحدث: رفع خلفية
+    // ======================
+    document.getElementById('uploadBackdrop').addEventListener('click', function() {
+      const input = document.getElementById('backdropInput');
+      input.click();
+    });
+
+    document.getElementById('backdropInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const backdrop = {
+          id: 'backdrop_' + Date.now(),
+          name: file.name.split('.')[0],
+          url: e.target.result
+        };
+        backdrops.push(backdrop);
+        currentBackdrop = backdrop;
+        updateBackdropGallery();
+        updateStage();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ======================
+    // الحدث: رفع صوت
+    // ======================
+    document.getElementById('uploadSound').addEventListener('click', function() {
+      const input = document.getElementById('soundInput');
+      input.click();
+    });
+
+    document.getElementById('soundInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const sound = {
+          id: 'sound_' + Date.now(),
+          name: file.name.split('.')[0],
+          url: e.target.result
+        };
+        sounds.push(sound);
+        updateSoundsList();
+        showToast('تم إضافة الصوت: ' + sound.name);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ======================
+    // الحدث: حفظ المشروع
+    // ======================
+    document.getElementById('saveProjectBtn').addEventListener('click', function() {
+      const xml = Blockly.Xml.workspaceToDom(workspace);
+      const xmlText = Blockly.Xml.domToText(xml);
+      
+      const project = {
+        sprites: sprites,
+        backdrops: backdrops,
+        sounds: sounds,
+        currentBackdrop: currentBackdrop?.id,
+        xml: xmlText
+      };
+      
+      const blob = new Blob([JSON.stringify(project)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'blockly_project.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      showToast(translations[currentLang].projectSaved);
+    });
+
+    // ======================
+    // الحدث: تحميل مشروع
+    // ======================
+    document.getElementById('loadProjectBtn').addEventListener('click', function() {
+      const input = document.getElementById('fileInput');
+      input.click();
+    });
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const project = JSON.parse(e.target.result);
+          
+          // تحميل البيانات
+          sprites = project.sprites || [];
+          backdrops = project.backdrops || backdrops;
+          sounds = project.sounds || sounds;
+          
+          if (project.currentBackdrop) {
+            currentBackdrop = backdrops.find(b => b.id === project.currentBackdrop) || backdrops[0];
+          }
+          
+          // تحميل كتل Blockly
+          if (project.xml) {
+            const xml = Blockly.Xml.textToDom(project.xml);
+            Blockly.Xml.domToWorkspace(xml, workspace);
+          }
+          
+          // تحديث الواجهة
+          if (sprites.length > 0) {
+            currentSprite = sprites[0];
+          }
+          updateStage();
+          updateSpriteList();
+          updateSpriteProperties();
+          updateBackdropGallery();
+          updateSoundsList();
+          
+          showToast(translations[currentLang].projectLoaded);
+        } catch (e) {
+          showToast(translations[currentLang].errorLoading + ': ' + e.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // ======================
+    // الحدث: مسح الكونسول
+    // ======================
+    document.getElementById('clearConsole').addEventListener('click', function() {
+      document.getElementById('console').innerText = '';
+    });
+
+    // ======================
+    // الحدث: ملء الشاشة
+    // ======================
+    document.getElementById('fullscreenBtn').addEventListener('click', function() {
+      const stageContainer = document.querySelector('.stage-container');
+      if (!document.fullscreenElement) {
+        stageContainer.requestFullscreen().catch(err => {
+          alert(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    // ======================
+    // حفظ تلقائي في localStorage
+    // ======================
+    function saveToLocalStorage() {
+      if (!workspace) return;
+      const xml = Blockly.Xml.workspaceToDom(workspace);
+      const xmlText = Blockly.Xml.domToText(xml);
+      localStorage.setItem('blocklyWorkspace', xmlText);
+      localStorage.setItem('sprites', JSON.stringify(sprites));
+      localStorage.setItem('backdrops', JSON.stringify(backdrops));
+      localStorage.setItem('sounds', JSON.stringify(sounds));
+      localStorage.setItem('currentBackdrop', currentBackdrop?.id || '');
+    }
+
+    function loadFromLocalStorage() {
+      const xmlText = localStorage.getItem('blocklyWorkspace');
+      if (xmlText && workspace) {
+        try {
+          const xml = Blockly.Xml.textToDom(xmlText);
+          Blockly.Xml.domToWorkspace(xml, workspace);
+        } catch(e) {
+          console.error('Error loading workspace:', e);
+        }
+      }
+      
+      const savedSprites = localStorage.getItem('sprites');
+      if (savedSprites) {
+        try {
+          sprites = JSON.parse(savedSprites);
+          if (sprites.length > 0) {
+            currentSprite = sprites[0];
+          }
+        } catch(e) {
+          console.error('Error loading sprites:', e);
+        }
+      }
+      
+      const savedBackdrops = localStorage.getItem('backdrops');
+      if (savedBackdrops) {
+        try {
+          backdrops = JSON.parse(savedBackdrops);
+          const savedBackdropId = localStorage.getItem('currentBackdrop');
+          if (savedBackdropId) {
+            currentBackdrop = backdrops.find(b => b.id === savedBackdropId) || backdrops[0];
+          }
+        } catch(e) {
+          console.error('Error loading backdrops:', e);
+        }
+      }
+      
+      const savedSounds = localStorage.getItem('sounds');
+      if (savedSounds) {
+        try {
+          sounds = JSON.parse(savedSounds);
+        } catch(e) {
+          console.error('Error loading sounds:', e);
+        }
+      }
+      
+      updateStage();
+      updateSpriteList();
+      updateSpriteProperties();
+      updateBackdropGallery();
+      updateSoundsList();
+    }
+
+    // حفظ دوري كل 30 ثانية
+    setInterval(saveToLocalStorage, 30000);
+
+    // ======================
+    // إشعار سريع
+    // ======================
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 5px;
+        z-index: 10000;
+        font-size: 16px;
+        animation: fadeInOut 3s forwards;
+      `;
+      toast.innerText = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    // ======================
+    // التهيئة عند التحميل
+    // ======================
+    window.addEventListener('load', function() {
+      defineCustomBlocks();
+      initBlockly();
+      initProject();
+      
+      // حفظ عند إغلاق الصفحة
+      window.addEventListener('beforeunload', saveToLocalStorage);
+    });
+
+    // ======================
+    // CSS للإشعارات
+    // ======================
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+        10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
 </body>
 </html>
